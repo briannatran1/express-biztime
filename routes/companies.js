@@ -31,9 +31,8 @@ router.get('/:code', async function (req, res) {
     WHERE code = $1`, [code]
   );
 
-  //TODO: only need to select id
   const invoiceResults = await db.query(
-    `SELECT id, amt, paid, add_date, paid_date
+    `SELECT id
       FROM invoices
       WHERE comp_code = $1`,
     [code]
@@ -41,8 +40,7 @@ router.get('/:code', async function (req, res) {
 
   const company = companyResults.rows[0];
 
-  //TODO: add message when throwing errors
-  if (!company) throw new NotFoundError();
+  if (!company) throw new NotFoundError("Did not find company code");
 
   company.invoices = invoiceResults.rows;
   return res.json({ company });
@@ -54,7 +52,7 @@ router.get('/:code', async function (req, res) {
  * returns obj of new company: {company: {code, name, description}}
  */
 router.post('/', async function (req, res) {
-  if (!req.body) throw new BadRequestError();
+  if (req.body === undefined) throw new BadRequestError();
 
   const { code, name, description } = req.body;
   const response = await db.query(`
@@ -63,7 +61,9 @@ router.post('/', async function (req, res) {
     RETURNING code, name, description`, [code, name, description]
   );
 
+
   const company = response.rows[0];
+  // if (!company) throw new BadRequestError("company data insufficient, need primary key");
   return res.status(201).json({ company });
 });
 
@@ -102,7 +102,7 @@ router.delete('/:code', async function (req, res) {
   const response = await db.query(`DELETE FROM companies WHERE code = $1`,
     [req.params.code]);
 
-  if (!response.rows[0]) throw new NotFoundError();
+  if (!response.rowCount) throw new NotFoundError();
   return res.json({ message: 'deleted' });
 });
 
