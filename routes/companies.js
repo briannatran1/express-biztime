@@ -26,11 +26,23 @@ router.get('/', async function (req, res) {
  */
 router.get('/:code', async function (req, res) {
   const code = req.params.code;
-  const results = await db.query(`
+  const companyResults = await db.query(`
     SELECT code, name, description FROM companies
     WHERE code = $1`, [code]
   );
-  const company = results.rows[0];
+
+  const invoiceResults = await db.query(
+    `SELECT id, amt, paid, add_date, paid_date
+      FROM invoices
+      WHERE comp_code = $1`,
+    [code]
+  );
+
+  const company = companyResults.rows[0];
+
+  if (!company) throw new NotFoundError();
+
+  company.invoices = invoiceResults.rows;
   return res.json({ company });
 });
 
@@ -87,6 +99,7 @@ router.delete('/:code', async function (req, res) {
 
   const response = await db.query(`DELETE FROM companies WHERE code = $1`,
     [req.params.code]);
+
   if (!response.rows[0]) throw new NotFoundError();
   return res.json({ message: 'deleted' });
 });

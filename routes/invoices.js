@@ -3,12 +3,11 @@
 const db = require('../db');
 
 const express = require("express");
-const { BadRequestError } = require('../expressError');
+const { BadRequestError, NotFoundError } = require('../expressError');
 
 const router = new express.Router();
 
-// GET /invoices
-// Return info on invoices: like {invoices: [{id, comp_code}, ...]}
+/** GET /invoices: Return info on invoices: like {invoices: [{id, comp_code}, ...]} */
 router.get('/', async function (req, res) {
   const results = await db.query(
     `SELECT id, comp_code, amt, paid, add_date, paid_date
@@ -20,43 +19,52 @@ router.get('/', async function (req, res) {
   return res.json({ invoices });
 });
 
-// GET /invoices/[id]
-// Returns obj on given invoice.
-
-// If invoice cannot be found, returns 404.
-
-// Returns {invoice: {id, amt, paid, add_date, paid_date, company: {code, name, description}}
+/** GET /invoices/:id: returns an invoice obj like {invoice: {id, amt, paid, add_date, paid_date,
+ * company: {code, name, description}}
+ * or 404 error */
 router.get('/:id', async function (req, res) {
   const id = req.params.id;
 
   const invoiceResults = await db.query(
-    `SELECT id, amt, paid, add_date, paid_date
+    `SELECT id, comp_code, amt, paid, add_date, paid_date
       FROM invoices
       WHERE id = $1`,
     [id]
   );
+  const invoice = invoiceResults.rows[0];
+
+  if (!invoice) throw new NotFoundError();
 
   const companyResults = await db.query(
     `SELECT code, name, description
       FROM companies
-      WHERE code = (
-        SELECT comp_code
-          FROM invoices
-          WHERE id = $1
-      )`, [id]
+      WHERE code = $1`,
+    [invoice.comp_code]
   );
 
-  const invoice = invoiceResults.rows[0];
+  // subquery way:
+  //
+  // const companyResults = await db.query(
+  //   `SELECT code, name, description
+  //     FROM companies
+  //     WHERE code = (
+  //       SELECT comp_code
+  //         FROM invoices
+  //         WHERE id = $1
+  //     )`, [id]
+  // );
+
   const company = companyResults.rows[0];
-  return res.json({ invoice: { ...invoice, company } });
+  invoice.company = company;
+
+  return res.json({ invoice });
+
+  // return res.json({ invoice: { ...invoice, company } });
 });
 
-// POST /invoices
-// Adds an invoice.
-
-// Needs to be passed in JSON body of: {comp_code, amt}
-
-// Returns: {invoice: {id, comp_code, amt, paid, add_date, paid_date}}
+/** POST /invoices: creates a new invoice by passing in { comp_code, amt }
+ *  Returns: {invoice: {id, comp_code, amt, paid, add_date, paid_date}}
+ */
 router.post('/', async function (req, res) {
   if (!req.body) throw new BadRequestError();
 
@@ -72,21 +80,39 @@ router.post('/', async function (req, res) {
   return res.status(201).json({ invoice });
 });
 
-// PUT /invoices/[id]
-// Updates an invoice.
+/** PUT /invoices/:id: updates an existing invoice by passing {amt}
+ * Returns: {invoice: {id, comp_code, amt, paid, add_date, paid_date}} OR
+ * returns a 404 if no invoice is found */
+router.put('/:id', async function (req, res) {
+  if (!req.body) throw new BadRequestError();
 
-// If invoice cannot be found, returns a 404.
+  const { amt } = req.body;
+  const result = await db.query(
+    `UPDATE invoices
+      SET amt=$1
+      WHERE id = $2
+      RETURNING id, comp_code, amt, paid, add_date, paid_date`,
+    [amt, req.params.id]
+  );
 
-// Needs to be passed in a JSON body of {amt}
+  const invoice = result.rows[0];
+  return res.json({ invoice });
+});
 
-// Returns: {invoice: {id, comp_code, amt, paid, add_date, paid_date}}
+/** DELETE /invoices/:id: deletes and invoice and returns {status: "deleted"}
+ * or returns a 404 error if invoice cannot be found
+*/
+router.delete('/:id', async function (req, res) {
+  const result = await db.query(
+    `DELETE FROM invoices
+      WHERE id = $1`,
+    [req.params.id]);
 
+  console.log(result);
 
-// DELETE /invoices/[id]
-// Deletes an invoice.
+  if (!result.rowCount) throw new NotFoundError();
 
-// If invoice cannot be found, returns a 404.
-
-// Returns: {status: "deleted"}
+  return res.json({ status: 'deleted' });
+});
 
 module.exports = router;
