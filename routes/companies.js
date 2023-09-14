@@ -31,6 +31,7 @@ router.get('/:code', async function (req, res) {
     WHERE code = $1`, [code]
   );
 
+  //TODO: only need to select id
   const invoiceResults = await db.query(
     `SELECT id, amt, paid, add_date, paid_date
       FROM invoices
@@ -40,6 +41,7 @@ router.get('/:code', async function (req, res) {
 
   const company = companyResults.rows[0];
 
+  //TODO: add message when throwing errors
   if (!company) throw new NotFoundError();
 
   company.invoices = invoiceResults.rows;

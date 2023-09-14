@@ -7,6 +7,9 @@ const { BadRequestError, NotFoundError } = require('../expressError');
 
 const router = new express.Router();
 
+//TODO: add more lines for docstrings => more vertical
+//TODO: less information for many things, more for fewer things; return only code and name
+
 /** GET /invoices: Return info on invoices: like {invoices: [{id, comp_code}, ...]} */
 router.get('/', async function (req, res) {
   const results = await db.query(
@@ -14,6 +17,8 @@ router.get('/', async function (req, res) {
       FROM invoices
       ORDER BY id`
   );
+
+  //TODO: group code together space between 23 and 24
 
   const invoices = results.rows;
   return res.json({ invoices });
@@ -65,6 +70,8 @@ router.get('/:id', async function (req, res) {
 /** POST /invoices: creates a new invoice by passing in { comp_code, amt }
  *  Returns: {invoice: {id, comp_code, amt, paid, add_date, paid_date}}
  */
+
+//TODO: group thoughts together
 router.post('/', async function (req, res) {
   if (!req.body) throw new BadRequestError();
 
@@ -92,6 +99,8 @@ router.put('/:id', async function (req, res) {
       SET amt=$1
       WHERE id = $2
       RETURNING id, comp_code, amt, paid, add_date, paid_date`,
+
+    //TODO: make var for req.param.id
     [amt, req.params.id]
   );
 
@@ -107,8 +116,6 @@ router.delete('/:id', async function (req, res) {
     `DELETE FROM invoices
       WHERE id = $1`,
     [req.params.id]);
-
-  console.log(result);
 
   if (!result.rowCount) throw new NotFoundError();
 
