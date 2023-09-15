@@ -68,10 +68,6 @@ describe("get companies", function () {
 
 });
 
-
-
-
-
 describe("Post request tests", function () {
 
   test("Post request success", async function () {
@@ -109,9 +105,26 @@ describe("Post request tests", function () {
   });
 });
 
+describe('PUT /companies/:code', function () {
+  test('update single company', async function () {
+    const resp = await request(app)
+      .put('/companies/apple')
+      .send({
+        "code": "meta",
+        "name": "Meta",
+        "description": "Facebook.",
+      });
 
-
-
+    expect(resp.statusCode).toEqual(200);
+    expect(resp.body).toEqual({
+      "company": {
+        "code": "apple",
+        "name": "Meta",
+        "description": "Facebook.",
+      }
+    });
+  });
+});
 
 describe("delete request tests", function () {
 
